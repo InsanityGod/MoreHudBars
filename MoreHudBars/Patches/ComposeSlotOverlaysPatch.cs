@@ -3,6 +3,7 @@ using HarmonyLib;
 using MoreHudBars.Config.SubConfigs;
 using MoreHudBars.Info;
 using MoreHudBars.Providers;
+using System;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
@@ -40,6 +41,8 @@ public static class ComposeSlotOverlaysPatch
 		return false;
 	}
 
+    const float epsilon = 0.005f;
+
     public static bool TryDrawExtraHuds(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, ItemSlot slot, int slotIndex, ICoreClientAPI capi)
     {
         if(slot.Itemstack?.Collectible is null) return false;
@@ -52,7 +55,7 @@ public static class ComposeSlotOverlaysPatch
         {
             var config = provider.Config;
             if (!config.Enabled || !provider.TryGetPercentage(world, slot, out var percentage)) continue;
-            if (!config.ShowEvenIfBarFull && (int)percentage == 1) continue;
+            if (!config.ShowEvenIfBarFull && Math.Abs(percentage - 1f) < epsilon) continue;
             var color = GetColor(provider, config, slot);
             switch (config.HudBarType)
             {
