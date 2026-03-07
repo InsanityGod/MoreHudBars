@@ -7,7 +7,7 @@
   ],
   "Side": "Client",
   "description": "Adds more bars to HuD elements",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "dependencies": {
     "game": ""
   }
