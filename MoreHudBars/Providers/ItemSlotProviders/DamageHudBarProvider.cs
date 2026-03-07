@@ -14,7 +14,7 @@ public class DamageHudBarProvider : IItemSlotHudBarProvider
     {
         percentage = 1f;
         var itemStack = itemSlot.Itemstack;
-        if(!itemStack.Collectible.ShouldDisplayItemDamage(itemStack)) return false;
+        if(!MoreHudBarsConfig.Instance!.DamageBar.ShowEvenIfBarFull && !itemStack.Collectible.ShouldDisplayItemDamage(itemStack)) return false;
 
         float maxDurability = itemStack.Collectible.GetMaxDurability(itemStack);
         if(maxDurability <= 0) return false;
