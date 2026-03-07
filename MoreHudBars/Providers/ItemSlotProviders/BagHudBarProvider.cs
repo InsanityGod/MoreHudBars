@@ -1,9 +1,8 @@
 ﻿using MoreHudBars.Config;
 using MoreHudBars.Config.SubConfigs;
-using MoreHudBars.Info;
+using System;
 using System.Linq;
 using Vintagestory.API.Common;
-using Vintagestory.Common;
 
 namespace MoreHudBars.Providers.ItemSlotProviders;
 
@@ -15,7 +14,7 @@ public class BagHudBarProvider : IItemSlotHudBarProvider
     {
         percentage = 1f;
         var itemStack = itemSlot.Itemstack;
-        if(itemSlot.Inventory is not InventoryPlayerBackPacks inventoryPlayerBackpacks || inventoryPlayerBackpacks.GetSlotId(itemSlot) >= inventoryPlayerBackpacks.CountForNetworkPacket || itemStack.Collectible.GetCollectibleInterface<IHeldBag>() is not { } heldbag) return false;
+        if(itemStack.Collectible.GetCollectibleInterface<IHeldBag>() is not { } heldbag) return false;
 
         float maxSlots = heldbag.GetQuantitySlots(itemStack);
         if(maxSlots <= 0) return false;

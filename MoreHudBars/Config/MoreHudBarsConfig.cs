@@ -8,13 +8,22 @@ public class MoreHudBarsConfig
     public static MoreHudBarsConfig? Instance { get; internal set; }
 
     /// <summary>
-    /// The configuration of the condition bar shown on wearable items
-    /// Note: This is disabled by default as I haven't figured out yet why some of the clothing slots refuse to show the bar
+    /// The configuration of the durability bar
     /// </summary>
-    public HudBarConfig ConditionBar { get; set; } = new()
+    public HudBarConfig DamageBar { get; set; } = new()
+    {
+        Color = new(0.482, 0.521, 0.211, 0.5),
+        AllowColorOverride = true,
+    };
+
+    /// <summary>
+    /// The configuration of the condition bar shown on wearable items
+    /// </summary>
+    public HudBarConfig ClothingConditionBar { get; set; } = new()
     {
         Color = new(1.0, 0.5, 0.0, 0.7),
-        Enabled = false,
+        HudBarType = EHudBarType.Vertical,
+        AllowColorOverride = true,
     };
 
     /// <summary>

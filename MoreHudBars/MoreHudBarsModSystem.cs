@@ -33,6 +33,7 @@ public class MoreHudBarsModSystem : ModSystem
             new Harmony(Mod.Info.ModID).PatchAllUncategorized();
         }
 
+        RegisterForItemSlot<DamageHudBarProvider>();
         RegisterForItemSlot<FoodPortionsHudBarProvider>();
         RegisterForItemSlot<LiquidHudBarProvider>();
         RegisterForItemSlot<ConditionHudBarProvider>();

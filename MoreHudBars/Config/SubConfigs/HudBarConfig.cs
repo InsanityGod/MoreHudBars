@@ -1,7 +1,6 @@
 ﻿using Cairo;
 using MoreHudBars.Info;
 using System.ComponentModel;
-using Vintagestory.API.Client;
 
 namespace MoreHudBars.Config.SubConfigs;
 
@@ -12,6 +11,12 @@ public class HudBarConfig
     /// </summary>
     [DefaultValue(true)]
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Decides whether providers are allowed to override the configured color.
+    /// Disabling this will make it always use <see cref="Color"/> and disable any dynamic color decissions like with the durability bar.
+    /// </summary>
+    public bool AllowColorOverride { get; set; }
 
     /// <summary>
     /// The color that should be used for this status bar.

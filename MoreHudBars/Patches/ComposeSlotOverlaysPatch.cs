@@ -2,56 +2,47 @@
 using HarmonyLib;
 using MoreHudBars.Config.SubConfigs;
 using MoreHudBars.Info;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
+using MoreHudBars.Providers;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using Vintagestory.API.MathTools;
+using Vintagestory.API.Datastructures;
 
 namespace MoreHudBars.Patches;
 
 [HarmonyPatch]
 public static class ComposeSlotOverlaysPatch
 {
+
+
     [HarmonyPatch(typeof(GuiElementItemSlotGridBase), "ComposeSlotOverlays")]
-    [HarmonyTranspiler]
-    public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+    [HarmonyPrefix]
+    public static bool ComposeSlotOverlaysPrefix(GuiElementItemSlotGridBase __instance, ItemSlot slot, int slotId, int slotIndex, ref bool __result, OrderedDictionary<int, ItemSlot> ___availableSlots, LoadedTexture[] ___slotQuantityTextures, ICoreClientAPI ___api)
+	{
+		if (!___availableSlots.ContainsKey(slotId))
+		{
+            __result = false;
+			return false;
+		}
+		if (slot.Itemstack == null)
+		{
+            __result = true;
+			return false;
+		}
+
+        if(!TryDrawExtraHuds(__instance, ___slotQuantityTextures, slot, slotIndex, ___api))
+        {
+            //Nothing drawn
+            ___slotQuantityTextures[slotIndex].Dispose();
+			___slotQuantityTextures[slotIndex] = new LoadedTexture(___api);
+        }
+
+        __result = true;
+		return false;
+	}
+
+    public static bool TryDrawExtraHuds(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, ItemSlot slot, int slotIndex, ICoreClientAPI capi)
     {
-        var matcher = new CodeMatcher(instructions, generator);
-        matcher.Start();
-        matcher.MatchEndForward(
-            new CodeMatch(instruction => instruction is { operand: MethodInfo { Name: "ShouldDisplayItemDamage" }  }),
-            new CodeMatch(OpCodes.Stloc_0)
-        );
-
-        matcher.DefineLabel(out var originalPathLabel);
-
-        matcher.InsertAfterAndAdvance(
-            CodeInstruction.LoadArgument(0), //instance
-            CodeInstruction.LoadArgument(1), //itemSlot
-            CodeInstruction.LoadArgument(2), //slotIndex
-            CodeInstruction.LoadArgument(0),
-            CodeInstruction.LoadField(typeof(GuiElement), "api"), //capi
-            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ComposeSlotOverlaysPatch), nameof(TryDrawExtraHuds))),
-            new CodeInstruction(OpCodes.Brfalse, originalPathLabel),
-            new CodeInstruction(OpCodes.Ldc_I4_1),
-            new CodeInstruction(OpCodes.Ret)
-        );
-        matcher.Advance(1);
-        matcher.Labels.Add(originalPathLabel);
-
-        return matcher.InstructionEnumeration();
-    }
-
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "slotQuantityTextures")]
-    internal static extern ref LoadedTexture[] slotQuantityTextures(GuiElementItemSlotGridBase instance);
-
-    public static bool TryDrawExtraHuds(GuiElementItemSlotGridBase instance, ItemSlot slot, int slotIndex, ICoreClientAPI capi)
-    {
-        if(slot.Itemstack?.Collectible is not { } collectible ||  collectible.GetMaxDurability(slot.Itemstack) != 0) return false;
+        if(slot.Itemstack?.Collectible is null) return false;
         if(slot is ItemSlotCreative || instance.SlotBounds.Length <= slotIndex) return false; //no support for multiple bars atm
         var slotBounds = instance.SlotBounds[slotIndex];
         if(slotBounds is null) return false;
@@ -62,23 +53,21 @@ public static class ComposeSlotOverlaysPatch
             var config = provider.Config;
             if (!config.Enabled || !provider.TryGetPercentage(world, slot, out var percentage)) continue;
             if (!config.ShowEvenIfBarFull && (int)percentage == 1) continue;
-
+            var color = GetColor(provider, config, slot);
             switch (config.HudBarType)
             {
                 case EHudBarType.FloodFill:
-                    RenderFloodFill(instance, slotIndex, capi, slotBounds, config, percentage);
+                    RenderFloodFill(instance, slotQuantityTextures, slotIndex, capi, slotBounds, config, percentage, color);
                     break;
 
                 case EHudBarType.Vertical:
-                    RenderVertical(instance, slotIndex, capi, slotBounds, config, percentage);
+                    RenderVertical(instance, slotQuantityTextures, slotIndex, capi, slotBounds, config, percentage, color);
                     break;
 
                 default:
-                    RenderHorizontal(instance, slotIndex, capi, slotBounds, config, percentage);
+                    RenderHorizontal(instance, slotQuantityTextures, slotIndex, capi, slotBounds, config, percentage, color);
                     break;
             }
-
-            
 
             return true; //no support for multiple bars atm
         }
@@ -86,7 +75,9 @@ public static class ComposeSlotOverlaysPatch
         return false;
     }
 
-    private static void RenderFloodFill(GuiElementItemSlotGridBase instance, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, HudBarConfig config, float percentage)
+    private static Color GetColor(IItemSlotHudBarProvider provider, HudBarConfig config, ItemSlot slot) => config.AllowColorOverride ? provider.GetColorOVerride(slot) ?? config.Color : config.Color;
+
+    private static void RenderFloodFill(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color)
     {
         using ImageSurface textSurface = new(Format.Argb32, (int)slotBounds.InnerWidth, (int)slotBounds.InnerHeight);
         using Context textCtx = GuiElement.GenContext(textSurface);
@@ -106,7 +97,7 @@ public static class ComposeSlotOverlaysPatch
             y += GuiElement.scaled(2);
         }
 
-        textCtx.SetSourceColor(config.Color);
+        textCtx.SetSourceColor(color);
         var targetY = height * percentage;
         if((config.HudBarStyle & EHudBarStyle.Reverse) != 0)
         {
@@ -116,10 +107,10 @@ public static class ComposeSlotOverlaysPatch
         textCtx.FillPreserve();
 
 
-        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures(instance)[slotIndex]);
+        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures[slotIndex]);
     }
 
-    private static void RenderHorizontal(GuiElementItemSlotGridBase instance, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, Config.SubConfigs.HudBarConfig config, float percentage)
+    private static void RenderHorizontal(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color)
     {
         using ImageSurface textSurface = new(Format.Argb32, (int)slotBounds.InnerWidth, (int)slotBounds.InnerHeight);
         using Context textCtx = GuiElement.GenContext(textSurface);
@@ -142,7 +133,7 @@ public static class ComposeSlotOverlaysPatch
             instance.ShadePath(textCtx, 2.0);
         }
         //Foreground bar
-        textCtx.SetSourceColor(config.Color);
+        textCtx.SetSourceColor(color);
         width *= percentage;
 
         if((config.HudBarStyle & EHudBarStyle.Reverse) != 0)
@@ -154,10 +145,10 @@ public static class ComposeSlotOverlaysPatch
         instance.ShadePath(textCtx, 2.0);
         
         
-        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures(instance)[slotIndex]);
+        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures[slotIndex]);
     }
 
-    private static void RenderVertical(GuiElementItemSlotGridBase instance, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, Config.SubConfigs.HudBarConfig config, float percentage)
+    private static void RenderVertical(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color)
     {
         using ImageSurface textSurface = new(Format.Argb32, (int)slotBounds.InnerWidth, (int)slotBounds.InnerHeight);
         using Context textCtx = GuiElement.GenContext(textSurface);
@@ -180,7 +171,7 @@ public static class ComposeSlotOverlaysPatch
             instance.ShadePath(textCtx, 2.0);
         }
         //Foreground bar
-        textCtx.SetSourceColor(config.Color);
+        textCtx.SetSourceColor(color);
         height *= percentage;
 
         if((config.HudBarStyle & EHudBarStyle.Reverse) != 0)
@@ -192,6 +183,6 @@ public static class ComposeSlotOverlaysPatch
         instance.ShadePath(textCtx, 2.0);
         
         
-        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures(instance)[slotIndex]);
+        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures[slotIndex]);
     }
 }
