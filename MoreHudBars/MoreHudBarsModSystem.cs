@@ -29,19 +29,24 @@ public class MoreHudBarsModSystem : ModSystem
     {
         base.StartClientSide(api);
         LoadModConfig(api);
-        
+        var toolsmithEnabled = api.ModLoader.IsModEnabled("toolsmith");
         if (!Harmony.HasAnyPatches(Mod.Info.ModID))
         {
             new Harmony(Mod.Info.ModID).PatchAllUncategorized();
         }
 
-        RegisterForItemSlot<DamageHudBarProvider>();
+        if (toolsmithEnabled)
+        {
+            RegisterForItemSlot<ToolSmithDurabilityHudBarProvider>();
+        }
+        else RegisterForItemSlot<DurabilityHudBarProvider>();
+
         RegisterForItemSlot<FoodPortionsHudBarProvider>();
         RegisterForItemSlot<LiquidHudBarProvider>();
         RegisterForItemSlot<ConditionHudBarProvider>();
         RegisterForItemSlot<BagHudBarProvider>();
 
-        if (api.ModLoader.IsModEnabled("toolsmith"))
+        if (toolsmithEnabled)
         {
             RegisterForItemSlot<ToolSmithSharpnessHudBarProvider>();
         }

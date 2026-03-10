@@ -10,7 +10,7 @@ public class MoreHudBarsConfig
     /// <summary>
     /// The configuration of the durability bar
     /// </summary>
-    public HudBarConfig DamageBar { get; set; } = new()
+    public HudBarConfig DurabilityBar { get; set; } = new()
     {
         Color = new(0.482, 0.521, 0.211, 0.5),
         AllowColorOverride = true,

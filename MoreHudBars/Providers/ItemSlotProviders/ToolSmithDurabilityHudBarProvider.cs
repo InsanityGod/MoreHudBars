@@ -1,25 +1,26 @@
 ﻿using Cairo;
 using MoreHudBars.Config;
 using MoreHudBars.Config.SubConfigs;
+using Toolsmith.ToolTinkering;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 
 namespace MoreHudBars.Providers.ItemSlotProviders;
 
-public class DamageHudBarProvider : IItemSlotHudBarProvider
+public class ToolSmithDurabilityHudBarProvider : IItemSlotHudBarProvider
 {
-    public HudBarConfig Config => MoreHudBarsConfig.Instance!.DamageBar;
+    public HudBarConfig Config => MoreHudBarsConfig.Instance!.DurabilityBar;
 
     public bool TryGetPercentage(IWorldAccessor world, ItemSlot itemSlot, out float percentage)
     {
         percentage = 1f;
         var itemStack = itemSlot.Itemstack;
-        if(!MoreHudBarsConfig.Instance!.DamageBar.ShowEvenIfBarFull && !itemStack.Collectible.ShouldDisplayItemDamage(itemStack)) return false;
+        if(!Config.ShowEvenIfBarFull && !itemStack.Collectible.ShouldDisplayItemDamage(itemStack)) return false;
 
-        float maxDurability = itemStack.Collectible.GetMaxDurability(itemStack);
+        float maxDurability = TinkeringUtility.FindLowestMaxDurabilityForBar(itemStack);
         if(maxDurability <= 0) return false;
 
-        float currentDurability = itemStack.Collectible.GetRemainingDurability(itemStack);
+        float currentDurability = TinkeringUtility.FindLowestCurrentDurabilityForBar(itemStack);
 
         percentage =  currentDurability / maxDurability;
         return true;
@@ -27,7 +28,7 @@ public class DamageHudBarProvider : IItemSlotHudBarProvider
 
     public Color? GetColorOVerride(ItemSlot slot, float percentage)
     {
-        var color = ColorUtil.ToRGBAFloats(slot.Itemstack.Collectible.GetItemDamageColor(slot.Itemstack));
+        var color = ColorUtil.ToRGBAFloats(TinkeringUtility.ToolsmithGetItemDamageColor(slot.Itemstack));
         return new(color[0], color[1], color[2]);
     }
 }

@@ -66,5 +66,4 @@
 		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	</Content>
 </ItemGroup>
-
 </Project>
