@@ -4,6 +4,7 @@ using MoreHudBars.Config.SubConfigs;
 using MoreHudBars.Info;
 using MoreHudBars.Providers;
 using System;
+using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
@@ -45,47 +46,71 @@ public static class ComposeSlotOverlaysPatch
 
     public static bool TryDrawExtraHuds(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, ItemSlot slot, int slotIndex, ICoreClientAPI capi)
     {
-        if(slot.Itemstack?.Collectible is null) return false;
-        if(slot is ItemSlotCreative || instance.SlotBounds.Length <= slotIndex) return false; //no support for multiple bars atm
-        var slotBounds = instance.SlotBounds[slotIndex];
-        if(slotBounds is null) return false;
+        if(
+               slot.Itemstack?.Collectible is null
+            || slot is ItemSlotCreative
+            || instance.SlotBounds.Length <= slotIndex 
+            || instance.SlotBounds[slotIndex] is not ElementBounds slotBounds
+        ) return false;
 
         var world = capi.World;
-        foreach(var provider in MoreHudBarsModSystem.ItemSlotHudBarProviders)
+        
+        using ImageSurface textSurface = new(Format.Argb32, (int)slotBounds.InnerWidth, (int)slotBounds.InnerHeight);
+        using Context textCtx = GuiElement.GenContext(textSurface);
+        textCtx.SetSourceRGBA(0.0, 0.0, 0.0, 0.0);
+        textCtx.Paint();
+        bool didSomething = false;
+
+        var space = new AllowedSpace
+        {
+            XEnd = slotBounds.InnerWidth,
+            YEnd = slotBounds.InnerHeight
+        };
+
+        foreach(var provider in MoreHudBarsModSystem.ItemSlotHudBarProviders.OrderBy(OrderProviders))
         {
             var config = provider.Config;
             if (!config.Enabled || !provider.TryGetPercentage(world, slot, out var percentage)) continue;
             if (!config.ShowEvenIfBarFull && Math.Abs(percentage - 1f) < epsilon) continue;
-            var color = GetColor(provider, config, slot);
+            var color = GetColor(provider, config, slot, percentage);
             switch (config.HudBarType)
             {
                 case EHudBarType.FloodFill:
-                    RenderFloodFill(instance, slotQuantityTextures, slotIndex, capi, slotBounds, config, percentage, color);
+                    RenderFloodFill(textCtx, slotBounds, config, percentage, color);
                     break;
 
                 case EHudBarType.Vertical:
-                    RenderVertical(instance, slotQuantityTextures, slotIndex, capi, slotBounds, config, percentage, color);
+                    RenderVertical(instance, textCtx, slotBounds, config, percentage, color, space);
                     break;
 
                 default:
-                    RenderHorizontal(instance, slotQuantityTextures, slotIndex, capi, slotBounds, config, percentage, color);
+                    RenderHorizontal(instance, textCtx, slotBounds, config, percentage, color, space);
                     break;
             }
-
-            return true; //no support for multiple bars atm
+            didSomething = true;
+        }
+        
+        if (didSomething)
+        {
+            capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures[slotIndex]);
+            return true;
         }
 
         return false;
     }
 
-    private static Color GetColor(IItemSlotHudBarProvider provider, HudBarConfig config, ItemSlot slot) => config.AllowColorOverride ? provider.GetColorOVerride(slot) ?? config.Color : config.Color;
-
-    private static void RenderFloodFill(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color)
+    private static object OrderProviders(IItemSlotHudBarProvider provider) => provider.Config.HudBarType switch
     {
-        using ImageSurface textSurface = new(Format.Argb32, (int)slotBounds.InnerWidth, (int)slotBounds.InnerHeight);
-        using Context textCtx = GuiElement.GenContext(textSurface);
-        textCtx.SetSourceRGBA(0.0, 0.0, 0.0, 0.0);
-        textCtx.Paint();
+        EHudBarType.FloodFill => 0,
+        EHudBarType.Horizontal => 1,
+        EHudBarType.Vertical => 2,
+        _ => 3
+    };
+
+    private static Color GetColor(IItemSlotHudBarProvider provider, HudBarConfig config, ItemSlot slot, float percentage) => config.AllowColorOverride ? provider.GetColorOVerride(slot, percentage) ?? config.Color : config.Color;
+
+    private static void RenderFloodFill(Context textCtx, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color)
+    {
         var width = slotBounds.InnerWidth;
         var height = slotBounds.InnerHeight;
         var x = 0d;
@@ -108,26 +133,21 @@ public static class ComposeSlotOverlaysPatch
         }
         else GuiElement.Rectangle(textCtx, x, height + y, width, -targetY);
         textCtx.FillPreserve();
-
-
-        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures[slotIndex]);
     }
 
-    private static void RenderHorizontal(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color)
+    private static void RenderHorizontal(GuiElementItemSlotGridBase instance, Context textCtx, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color, AllowedSpace space)
     {
-        using ImageSurface textSurface = new(Format.Argb32, (int)slotBounds.InnerWidth, (int)slotBounds.InnerHeight);
-        using Context textCtx = GuiElement.GenContext(textSurface);
-        textCtx.SetSourceRGBA(0.0, 0.0, 0.0, 0.0);
-        textCtx.Paint();
-
+        var invertAlignment = (config.HudBarStyle & EHudBarStyle.AlternativeAlignment) != 0;
         //Background bar
         double x = GuiElement.scaled(4.0);
-        double y = (config.HudBarStyle & EHudBarStyle.AlternativeAlignment) == 0 
+        double y = !invertAlignment 
             ? slotBounds.InnerHeight - GuiElement.scaled(3.0) - GuiElement.scaled(4.0)
             : GuiElement.scaled(3.0);
         textCtx.SetSourceRGBA(GuiStyle.DialogStrongBgColor);
         double width = slotBounds.InnerWidth - GuiElement.scaled(8.0);
         double height = GuiElement.scaled(4.0);
+
+        space.TryReserve(ref x, ref y, ref width, ref height, domimantSide: EXYDominant.X, invertDirection: invertAlignment);
         
         if((config.HudBarStyle & EHudBarStyle.NoBackground) == 0)
         {
@@ -141,31 +161,26 @@ public static class ComposeSlotOverlaysPatch
 
         if((config.HudBarStyle & EHudBarStyle.Reverse) != 0)
         {
-            GuiElement.RoundRectangle(textCtx, textSurface.Width - x, y, -width, height, 1.0);
+            GuiElement.RoundRectangle(textCtx, slotBounds.InnerWidth - x, y, -width, height, 1.0);
         }
         else GuiElement.RoundRectangle(textCtx, x, y, width, height, 1.0);
         textCtx.FillPreserve();
         instance.ShadePath(textCtx, 2.0);
-        
-        
-        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures[slotIndex]);
     }
 
-    private static void RenderVertical(GuiElementItemSlotGridBase instance, LoadedTexture[] slotQuantityTextures, int slotIndex, ICoreClientAPI capi, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color)
+    private static void RenderVertical(GuiElementItemSlotGridBase instance, Context textCtx, ElementBounds slotBounds, HudBarConfig config, float percentage, Color color, AllowedSpace space)
     {
-        using ImageSurface textSurface = new(Format.Argb32, (int)slotBounds.InnerWidth, (int)slotBounds.InnerHeight);
-        using Context textCtx = GuiElement.GenContext(textSurface);
-        textCtx.SetSourceRGBA(0.0, 0.0, 0.0, 0.0);
-        textCtx.Paint();
-
+        var invertAlignment = (config.HudBarStyle & EHudBarStyle.AlternativeAlignment) != 0;
         //Background bar
-        double x = (config.HudBarStyle & EHudBarStyle.AlternativeAlignment) != 0 
+        double x = invertAlignment 
             ? slotBounds.InnerWidth - GuiElement.scaled(3.0) - GuiElement.scaled(4.0)
             : GuiElement.scaled(3.0);
         double y = GuiElement.scaled(4.0);
         textCtx.SetSourceRGBA(GuiStyle.DialogStrongBgColor);
         double width = GuiElement.scaled(4.0);
         double height = slotBounds.InnerHeight - GuiElement.scaled(8.0);
+
+        space.TryReserve(ref x, ref y, ref width, ref height, domimantSide: EXYDominant.Y, invertDirection: !invertAlignment);
         
         if((config.HudBarStyle & EHudBarStyle.NoBackground) == 0)
         {
@@ -181,11 +196,8 @@ public static class ComposeSlotOverlaysPatch
         {
             GuiElement.RoundRectangle(textCtx, x, y, width, height, 1.0);
         }
-        else GuiElement.RoundRectangle(textCtx, x, textSurface.Height - y, width, -height, 1.0);
+        else GuiElement.RoundRectangle(textCtx, x, slotBounds.InnerWidth - y, width, -height, 1.0);
         textCtx.FillPreserve();
         instance.ShadePath(textCtx, 2.0);
-        
-        
-        capi.Gui.LoadOrUpdateCairoTexture(textSurface, true, ref slotQuantityTextures[slotIndex]);
     }
 }

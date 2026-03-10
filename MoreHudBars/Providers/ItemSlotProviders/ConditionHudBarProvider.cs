@@ -23,9 +23,9 @@ public class ConditionHudBarProvider : IItemSlotHudBarProvider
         return percentage >= 0;
     }
 
-    public Color? GetColorOVerride(ItemSlot slot)
+    public Color? GetColorOVerride(ItemSlot slot, float percentage)
     {
-        var color = ColorUtil.ToRGBAFloats(GuiStyle.DamageColorGradient[(int)Math.Min(99f, slot.Itemstack.Attributes.GetFloat("condition", 1) * 200f)]);
+        var color = ColorUtil.ToRGBAFloats(GuiStyle.DamageColorGradient[(int)Math.Min(99f, percentage * 200f)]);
         return new(color[0], color[1], color[2]);
     }
 }

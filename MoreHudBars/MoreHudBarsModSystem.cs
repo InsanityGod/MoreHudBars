@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Config;
+using Vintagestory.Common;
 
 namespace MoreHudBars;
 
@@ -38,6 +40,11 @@ public class MoreHudBarsModSystem : ModSystem
         RegisterForItemSlot<LiquidHudBarProvider>();
         RegisterForItemSlot<ConditionHudBarProvider>();
         RegisterForItemSlot<BagHudBarProvider>();
+
+        if (api.ModLoader.IsModEnabled("toolsmith"))
+        {
+            RegisterForItemSlot<ToolSmithSharpnessHudBarProvider>();
+        }
 
         api.Event.PlayerJoin += OnPlayerJoin;
     }

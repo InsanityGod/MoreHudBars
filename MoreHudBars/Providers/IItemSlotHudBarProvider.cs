@@ -10,5 +10,5 @@ public interface IItemSlotHudBarProvider
 
     bool TryGetPercentage(IWorldAccessor world, ItemSlot itemSlot, out float percentage);
 
-    Color? GetColorOVerride(ItemSlot slot) => null;
+    Color? GetColorOVerride(ItemSlot slot, float percentage) => null;
 }

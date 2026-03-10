@@ -25,7 +25,7 @@ public class DamageHudBarProvider : IItemSlotHudBarProvider
         return true;
     }
 
-    public Color? GetColorOVerride(ItemSlot slot)
+    public Color? GetColorOVerride(ItemSlot slot, float percentage)
     {
         var color = ColorUtil.ToRGBAFloats(slot.Itemstack.Collectible.GetItemDamageColor(slot.Itemstack));
         return new(color[0], color[1], color[2]);

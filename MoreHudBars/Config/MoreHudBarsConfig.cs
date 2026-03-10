@@ -53,4 +53,9 @@ public class MoreHudBarsConfig
         HudBarType = EHudBarType.FloodFill,
         ShowEvenIfBarFull = true
     };
+
+    /// <summary>
+    /// Configuration regarding compatibility with other mods
+    /// </summary>
+    public ModCompatibilityConfig Compatibility {  get; set; } = new();
 }
