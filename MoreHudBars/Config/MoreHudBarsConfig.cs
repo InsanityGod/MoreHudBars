@@ -1,10 +1,13 @@
-﻿using MoreHudBars.Config.SubConfigs;
+﻿using InsanityLib.Generators.Attributes;
+using MoreHudBars.Config.SubConfigs;
 using MoreHudBars.Info;
+using System.Collections.Generic;
 
 namespace MoreHudBars.Config;
 
 public class MoreHudBarsConfig
 {
+    [AutoConfig("MoreHudBarsConfig.json", ServerSync = false)]
     public static MoreHudBarsConfig? Instance { get; internal set; }
 
     /// <summary>
@@ -58,4 +61,6 @@ public class MoreHudBarsConfig
     /// Configuration regarding compatibility with other mods
     /// </summary>
     public ModCompatibilityConfig Compatibility {  get; set; } = new();
+
+    public Dictionary<string, HudBarConfig> ExternalyRegistered { get; set; } = [];
 }

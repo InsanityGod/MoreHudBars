@@ -1,40 +1,52 @@
-﻿using HarmonyLib;
-using MoreHudBars.Config;
+﻿using InsanityLib.Generators.Attributes;
+using MoreHudBars.Config.SubConfigs;
 using MoreHudBars.Providers;
 using MoreHudBars.Providers.ItemSlotProviders;
 using System;
 using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using Vintagestory.API.Config;
-using Vintagestory.Common;
 
 namespace MoreHudBars;
 
-public class MoreHudBarsModSystem : ModSystem
+public partial class MoreHudBarsModSystem : ModSystem
 {
-    internal static List<IItemSlotHudBarProvider> ItemSlotHudBarProviders { get; } = [];
+    [AutoClear] internal static List<IItemSlotHudBarProvider> ItemSlotHudBarProviders { get; } = [];
+
+    public static void RegisterForItemSlot(string identifier, Func<HudBarConfig> defaultConfigProvider, System.Func<IWorldAccessor, ItemSlot, (bool result, float percentage)> percentageProvider) => ItemSlotHudBarProviders.Add(new HudBarProviderDelegateWrapper
+    {
+        Identifier = identifier,
+        DefaultConfigProvider = defaultConfigProvider,
+        PercentageProvider = percentageProvider
+    });
 
     public static void RegisterForItemSlot<T>() where T : IItemSlotHudBarProvider, new() => RegisterForItemSlot(new T());
     public static void RegisterForItemSlot(IItemSlotHudBarProvider provider)
     {
         ArgumentNullException.ThrowIfNull(provider);
-
+        
         ItemSlotHudBarProviders.Add(provider);
     }
 
     public override bool ShouldLoad(EnumAppSide forSide) => (forSide & EnumAppSide.Client) != 0;
 
+    public override void StartPre(ICoreAPI api)
+    {
+        base.StartPre(api);
+        AutoSetup(api);
+    }
+
+    public override void AssetsLoaded(ICoreAPI api)
+    {
+        base.AssetsLoaded(api);
+        AutoAssetsLoaded(api);
+    }
+
     public override void StartClientSide(ICoreClientAPI api)
     {
         base.StartClientSide(api);
-        LoadModConfig(api);
-        var toolsmithEnabled = api.ModLoader.IsModEnabled("toolsmith");
-        if (!Harmony.HasAnyPatches(Mod.Info.ModID))
-        {
-            new Harmony(Mod.Info.ModID).PatchAllUncategorized();
-        }
 
+        var toolsmithEnabled = api.ModLoader.IsModEnabled("toolsmith");
         if (toolsmithEnabled)
         {
             RegisterForItemSlot<ToolSmithDurabilityHudBarProvider>();
@@ -66,29 +78,9 @@ public class MoreHudBarsModSystem : ModSystem
         };
     }
 
-    private void LoadModConfig(ICoreAPI api)
-    {
-        try
-        {
-            MoreHudBarsConfig.Instance = api.LoadModConfig<MoreHudBarsConfig>("MoreHudBarsConfig.json");
-            if(MoreHudBarsConfig.Instance is null)
-            {
-                MoreHudBarsConfig.Instance = new MoreHudBarsConfig();
-                api.StoreModConfig(MoreHudBarsConfig.Instance, "MoreHudBarsConfig.json");
-            }
-        }
-        catch(Exception ex)
-        {
-            Mod.Logger.Error("Failed to load 'MoreHudBarsConfig.json', using default values: {0}", ex);
-            MoreHudBarsConfig.Instance = new MoreHudBarsConfig();
-        }
-    }
-
     public override void Dispose()
     {
         base.Dispose();
-
-        new Harmony(Mod.Info.ModID).UnpatchAll();
-        ItemSlotHudBarProviders.Clear();
+        AutoDispose();
     }
 }

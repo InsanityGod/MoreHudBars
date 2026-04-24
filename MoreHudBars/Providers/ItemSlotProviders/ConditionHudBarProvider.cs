@@ -5,7 +5,6 @@ using System;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
-using Vintagestory.GameContent;
 
 namespace MoreHudBars.Providers.ItemSlotProviders;
 
@@ -17,7 +16,7 @@ public class ConditionHudBarProvider : IItemSlotHudBarProvider
     {
         percentage = 1f;
         var itemStack = itemSlot.Itemstack;
-        if(itemStack.Collectible is not ItemWearable { }) return false;
+        if(itemStack?.Collectible.GetCollectibleInterface<IWearable>() is not { }) return false;
         
         percentage = itemStack.Attributes.GetFloat("condition", -1);
         return percentage >= 0;
