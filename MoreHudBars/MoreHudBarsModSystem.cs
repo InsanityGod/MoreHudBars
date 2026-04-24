@@ -1,4 +1,5 @@
-﻿using InsanityLib.Generators.Attributes;
+﻿using Cairo;
+using InsanityLib.Generators.Attributes;
 using MoreHudBars.Config.SubConfigs;
 using MoreHudBars.Providers;
 using MoreHudBars.Providers.ItemSlotProviders;
@@ -13,11 +14,12 @@ public partial class MoreHudBarsModSystem : ModSystem
 {
     [AutoClear] internal static List<IItemSlotHudBarProvider> ItemSlotHudBarProviders { get; } = [];
 
-    public static void RegisterForItemSlot(string identifier, Func<HudBarConfig> defaultConfigProvider, System.Func<IWorldAccessor, ItemSlot, (bool result, float percentage)> percentageProvider) => ItemSlotHudBarProviders.Add(new HudBarProviderDelegateWrapper
+    public static void RegisterForItemSlot(string identifier, Func<HudBarConfig> defaultConfigProvider, System.Func<IWorldAccessor, ItemSlot, (bool result, float percentage)> percentageProvider, System.Func<ItemSlot, float, Color?>? colorProvider = null) => ItemSlotHudBarProviders.Add(new HudBarProviderDelegateWrapper
     {
         Identifier = identifier,
         DefaultConfigProvider = defaultConfigProvider,
-        PercentageProvider = percentageProvider
+        PercentageProvider = percentageProvider,
+        ColorProvider = colorProvider
     });
 
     public static void RegisterForItemSlot<T>() where T : IItemSlotHudBarProvider, new() => RegisterForItemSlot(new T());

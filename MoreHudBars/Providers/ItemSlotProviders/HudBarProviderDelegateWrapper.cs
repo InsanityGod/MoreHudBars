@@ -1,4 +1,5 @@
-﻿using MoreHudBars.Config;
+﻿using Cairo;
+using MoreHudBars.Config;
 using MoreHudBars.Config.SubConfigs;
 using System;
 using Vintagestory.API.Common;
@@ -12,6 +13,8 @@ public class HudBarProviderDelegateWrapper : IItemSlotHudBarProvider
     public required Func<HudBarConfig> DefaultConfigProvider { get; init; }
 
     public required System.Func<IWorldAccessor, ItemSlot, (bool result, float percentage)> PercentageProvider {get; init; }
+
+    public required System.Func<ItemSlot, float, Color?>? ColorProvider { get; init;}
 
     public HudBarConfig Config
     {
@@ -32,4 +35,6 @@ public class HudBarProviderDelegateWrapper : IItemSlotHudBarProvider
         percentage = provided.percentage;
         return provided.result;
     }
+
+    public Color? GetColorOVerride(ItemSlot slot, float percentage) => ColorProvider?.Invoke(slot, percentage);
 }
